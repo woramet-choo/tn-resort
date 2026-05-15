@@ -317,9 +317,55 @@ function StoreProvider({ children }) {
     return seedData();
   });
   const [toasts, setToasts] = React.useState([]);
+  const unsubscribeRef = React.useRef(null);
 
+  // Load from Firestore and subscribe to real-time updates
   React.useEffect(() => {
-    try { localStorage.setItem("tn_state_v1", JSON.stringify(state)); } catch (e) {}
+    if (!window.subscribeToState) return;
+
+    // Load initial state from Firestore
+    (async () => {
+      try {
+        const savedState = await window.getState();
+        if (savedState && savedState.rooms && savedState.stays) {
+          setState(migrateState(savedState));
+        }
+      } catch (e) {
+        console.error('Failed to load from Firestore:', e);
+      }
+    })();
+
+    // Subscribe to real-time updates
+    try {
+      unsubscribeRef.current = window.subscribeToState((newState) => {
+        if (newState && newState.rooms && newState.stays) {
+          setState(prev => {
+            // Only update if remote data is newer/different
+            if (JSON.stringify(prev) !== JSON.stringify(newState)) {
+              return migrateState(newState);
+            }
+            return prev;
+          });
+        }
+      });
+    } catch (e) {
+      console.error('Failed to subscribe to Firestore:', e);
+    }
+
+    return () => {
+      if (unsubscribeRef.current) unsubscribeRef.current();
+    };
+  }, []);
+
+  // Sync local state to Firestore
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("tn_state_v1", JSON.stringify(state));
+    } catch (e) {}
+
+    if (window.setState && state.rooms && state.stays) {
+      window.setState(state).catch(e => console.error('Firebase sync error:', e));
+    }
   }, [state]);
 
   // Update helpers
