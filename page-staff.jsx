@@ -96,6 +96,7 @@ function StaffPage({ role }) {
               <th>{lang==="th"?"เต็มวัน":"Full"}</th>
               <th>{lang==="th"?"ครึ่งวัน":"Half"}</th>
               <th>{lang==="th"?"ไม่มา":"Absent"}</th>
+              <th>{t("s_ot_short")}</th>
               <th>{t("s_payable")}</th>
               <th>{t("s_balance")}</th>
               <th></th>
@@ -103,7 +104,7 @@ function StaffPage({ role }) {
           </thead>
           <tbody>
             {state.staff.map(s => {
-              const breakdown = wagesInfo.breakdown.find(b => b.id === s.id) || { days: 0, halfDays: 0, absent: 0, payable: 0 };
+              const breakdown = wagesInfo.breakdown.find(b => b.id === s.id) || { days: 0, halfDays: 0, absent: 0, otPay: 0, otHours: 0, payable: 0 };
               const todayAtt = state.attendance[s.id + "_" + todayStr];
               const bal = getStaffBalance(state, s.id);
               return (
@@ -130,6 +131,10 @@ function StaffPage({ role }) {
                   <td className="mono">{breakdown.days}</td>
                   <td className="mono">{breakdown.halfDays}</td>
                   <td className="mono">{breakdown.absent}</td>
+                  <td className="mono" style={{ color: breakdown.otPay > 0 ? "var(--accent)" : "var(--muted)", fontWeight: breakdown.otPay > 0 ? 600 : 400 }}>
+                    {breakdown.otPay > 0 ? fmtBaht(breakdown.otPay) : "—"}
+                    {breakdown.otHours > 0 ? <div className="text-xs muted" style={{ fontWeight: 400 }}>{breakdown.otHours}h</div> : null}
+                  </td>
                   <td className="mono" style={{ fontWeight: 600 }}>{fmtBaht(breakdown.payable)}</td>
                   <td>
                     <div style={{ minWidth: 90 }}>
@@ -360,13 +365,23 @@ function StaffCalendarModal({ staffId, onClose, isManager }) {
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between",
                   position: "relative",
                 }}
-                title={att ? (t("s_"+att.status) + (att.clockIn ? ` · ${att.clockIn}-${att.clockOut||"…"}` : "") + (att.editNote ? ` · ${att.editNote}` : "")) : ""}
+                title={att ? (t("s_"+att.status) + (att.clockIn ? ` · ${att.clockIn}-${att.clockOut||"…"}` : "") + (att.otPay ? ` · +OT ฿${att.otPay}` : "") + (att.editNote ? ` · ${att.editNote}` : "")) : ""}
               >
                 <div style={{ fontWeight: isToday ? 700 : 500, fontSize: 12, color: isToday ? "var(--brand-dark)" : "var(--ink)" }}>{d}</div>
                 <div style={{ fontSize: 24, color, fontWeight: 700, lineHeight: 1 }}>{mark}</div>
                 {att && att.clockIn ? (
                   <div className="mono" style={{ fontSize: 9, color: "var(--ink-2)" }}>{att.clockIn}{att.clockOut ? "-"+att.clockOut : ""}</div>
                 ) : <div style={{ height: 11 }}></div>}
+                {att && att.otPay ? (
+                  <div style={{
+                    position: "absolute", top: 3, left: 3,
+                    fontSize: 9, fontWeight: 700, color: "white",
+                    background: "var(--accent)",
+                    padding: "1px 4px", borderRadius: 4, lineHeight: 1.3,
+                  }} title={"OT: ฿" + att.otPay + (att.otHours ? " (" + att.otHours + " hr)" : "")}>
+                    +฿{att.otPay}
+                  </div>
+                ) : null}
                 {att && att.editNote ? (
                   <div style={{ position: "absolute", top: 3, right: 3, width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }} title={att.editNote}></div>
                 ) : null}
@@ -380,6 +395,13 @@ function StaffCalendarModal({ staffId, onClose, isManager }) {
           <div className="row" style={{ gap: 7, alignItems: "center" }}><span style={{ color: "var(--st-available)", fontSize: 20, lineHeight: 1 }}>●</span> <span style={{ fontWeight: 500 }}>{t("s_full_day")}</span></div>
           <div className="row" style={{ gap: 7, alignItems: "center" }}><span style={{ color: "var(--st-dirty)", fontSize: 20, lineHeight: 1 }}>◐</span> <span style={{ fontWeight: 500 }}>{t("s_half_day")}</span></div>
           <div className="row" style={{ gap: 7, alignItems: "center" }}><span style={{ color: "var(--st-broken)", fontSize: 20, lineHeight: 1 }}>✕</span> <span style={{ fontWeight: 500 }}>{t("s_absent")}</span></div>
+          <div className="row" style={{ gap: 7, alignItems: "center" }}>
+            <span style={{
+              fontSize: 10, fontWeight: 700, color: "white",
+              background: "var(--accent)", padding: "1px 5px", borderRadius: 4,
+            }}>+฿</span>
+            <span style={{ fontWeight: 500 }}>{t("s_ot")}</span>
+          </div>
           <div className="row" style={{ gap: 7, alignItems: "center" }}><span style={{ color: "var(--accent)", fontSize: 20, lineHeight: 1 }}>●</span> <span style={{ fontWeight: 500 }}>{lang==="th"?"มีการแก้ไข":"Edited"}</span></div>
           {isManager ? <span className="muted">· {lang==="th"?"คลิกวันที่เพื่อแก้ไข":"Click date to edit"}</span> : null}
         </div>
@@ -399,12 +421,22 @@ function StaffCalendarModal({ staffId, onClose, isManager }) {
 
 function EditAttendanceModal({ staffId, date, current, onClose }) {
   const { t, lang } = useI18n();
-  const { actions, toast } = useStore();
+  const { state, actions, toast } = useStore();
+  const staff = state.staff.find(s => s.id === staffId);
   const [status, setStatus] = React.useState(current?.status || "full");
   const [clockIn, setClockIn] = React.useState(current?.clockIn || "08:00");
   const [clockOut, setClockOut] = React.useState(current?.clockOut || (status === "half" ? "12:30" : "17:00"));
+  const [otHours, setOtHours] = React.useState(current?.otHours || "");
+  const [otPay, setOtPay] = React.useState(current?.otPay || "");
   const [note, setNote] = React.useState("");
   const [err, setErr] = React.useState("");
+
+  // Suggested OT rate per hour = dailyWage / 8 × 1.5
+  const suggestRate = staff ? Math.round((staff.dailyWage / 8) * 1.5) : 0;
+  const autoFillOtPay = () => {
+    const h = Number(otHours) || 0;
+    if (h > 0) setOtPay(String(h * suggestRate));
+  };
 
   const submit = () => {
     if (!note.trim()) { setErr(t("s_edit_required")); return; }
@@ -412,6 +444,8 @@ function EditAttendanceModal({ staffId, date, current, onClose }) {
       status,
       clockIn: status === "absent" ? null : clockIn,
       clockOut: status === "absent" ? null : clockOut,
+      otHours: Number(otHours) || 0,
+      otPay: Number(otPay) || 0,
       editNote: note.trim(),
       editedAt: new Date().toISOString(),
       editedBy: t("s_edited_by_manager"),
@@ -455,10 +489,56 @@ function EditAttendanceModal({ staffId, date, current, onClose }) {
           </div>
         </div>
       ) : null}
+
+      {/* Overtime section */}
+      <div style={{
+        padding: 12,
+        background: "color-mix(in oklab, var(--accent) 6%, white)",
+        border: "1px solid color-mix(in oklab, var(--accent) 25%, var(--line))",
+        borderRadius: 8,
+        marginBottom: 12,
+      }}>
+        <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: "var(--accent)" }}>
+            <Icon name="clock" size={13} /> {t("s_ot")}
+          </div>
+          <div className="muted text-xs">
+            {lang==="th"?"แนะนำ":"Suggest"}: ฿{suggestRate}/{lang==="th"?"ชม.":"hr"}
+          </div>
+        </div>
+        <div className="grid-2">
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label className="field-label">{t("s_ot_hours")}</label>
+            <input
+              type="number"
+              min={0}
+              step={0.5}
+              className="input"
+              value={otHours}
+              onChange={(e) => setOtHours(e.target.value)}
+              onBlur={autoFillOtPay}
+              placeholder="0"
+            />
+          </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label className="field-label">{t("s_ot_pay")}</label>
+            <input
+              type="number"
+              min={0}
+              className="input"
+              value={otPay}
+              onChange={(e) => setOtPay(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+        </div>
+        <div className="field-hint" style={{ marginTop: 6 }}>{t("s_ot_hint")}</div>
+      </div>
+
       <div className="field">
         <label className="field-label">{t("s_edit_note")} *</label>
         <textarea className="textarea" rows={2} value={note} onChange={(e) => { setNote(e.target.value); setErr(""); }}
-          placeholder={lang==="th"?"เช่น ลืมลงเวลา, แก้ไขตามใบลา ฯลฯ":"e.g. forgot to clock in, leave form, etc."} autoFocus />
+          placeholder={lang==="th"?"เช่น ลืมลงเวลา, แก้ไขตามใบลา, อยู่ต่อกะดึก ฯลฯ":"e.g. forgot to clock in, leave form, OT, etc."} autoFocus />
         <div className="field-hint">{lang==="th"?"บังคับใส่หมายเหตุเพื่อบันทึกการแก้ไข":"Note is required to record the edit"}</div>
       </div>
       {err ? <div style={{ color: "var(--st-occupied)", fontSize: 12.5, marginTop: 8 }}>{err}</div> : null}
@@ -568,13 +648,22 @@ function AttendanceGrid({ state, actions, onOpenStaff }) {
                   else if (att.status === "full") { color = "var(--st-available)"; mark = "●"; }
                   else if (att.status === "half") { color = "var(--st-dirty)"; mark = "◐"; }
                   else { color = "var(--st-broken)"; mark = "✕"; }
+                  const hasOT = att && att.otPay > 0;
                   return (
-                    <td key={d} style={{ textAlign: "center", padding: "6px 4px", cursor: "pointer" }}
-                      title={att ? (t("s_"+att.status) + (att.clockIn ? ` · ${att.clockIn}-${att.clockOut||"…"}` : "")) : (lang==="th"?"ไม่มีข้อมูล":"No data")}
+                    <td key={d} style={{ textAlign: "center", padding: "6px 4px", cursor: "pointer", position: "relative" }}
+                      title={att ? (t("s_"+att.status) + (att.clockIn ? ` · ${att.clockIn}-${att.clockOut||"…"}` : "") + (hasOT ? ` · +OT ฿${att.otPay}` : "")) : (lang==="th"?"ไม่มีข้อมูล":"No data")}
                       onClick={() => {
                         actions.setAttendance(s.id, d, cycle(att));
                       }}>
                       <span style={{ fontSize: 20, color, fontWeight: 700, lineHeight: 1 }}>{mark}</span>
+                      {hasOT ? (
+                        <div style={{
+                          position: "absolute", top: 2, right: 2,
+                          fontSize: 8, fontWeight: 700, color: "white",
+                          background: "var(--accent)", padding: "0 3px", borderRadius: 3,
+                          lineHeight: 1.4,
+                        }}>OT</div>
+                      ) : null}
                     </td>
                   );
                 })}
@@ -587,7 +676,11 @@ function AttendanceGrid({ state, actions, onOpenStaff }) {
         <div className="row" style={{ gap: 7, alignItems: "center" }}><span style={{ color: "var(--st-available)", fontSize: 20, lineHeight: 1 }}>●</span> <span style={{ fontWeight: 500 }}>{t("s_full_day")}</span></div>
         <div className="row" style={{ gap: 7, alignItems: "center" }}><span style={{ color: "var(--st-dirty)", fontSize: 20, lineHeight: 1 }}>◐</span> <span style={{ fontWeight: 500 }}>{t("s_half_day")}</span></div>
         <div className="row" style={{ gap: 7, alignItems: "center" }}><span style={{ color: "var(--st-broken)", fontSize: 20, lineHeight: 1 }}>✕</span> <span style={{ fontWeight: 500 }}>{t("s_absent")}</span></div>
-        <span className="muted">· {lang==="th"?"คลิกเพื่อสลับสถานะ":"Click to cycle"}</span>
+        <div className="row" style={{ gap: 7, alignItems: "center" }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: "white", background: "var(--accent)", padding: "1px 5px", borderRadius: 3 }}>OT</span>
+          <span style={{ fontWeight: 500 }}>{t("s_ot")}</span>
+        </div>
+        <span className="muted">· {lang==="th"?"คลิกเพื่อสลับสถานะ · เปิดปฏิทินรายคนเพื่อบันทึก OT":"Click to cycle · open per-staff calendar to add OT"}</span>
       </div>
     </div>
   );

@@ -663,31 +663,42 @@ function StoreProvider({ children }) {
 const useStore = () => React.useContext(StoreContext);
 
 // ---------- Computed helpers ----------
-function wageForDay(staff, attRecord) {
+// Base wage for a day (without OT)
+function baseWageForDay(staff, attRecord) {
   if (!attRecord || attRecord.status === "absent") return 0;
   if (attRecord.status === "half") return staff.dailyWage * 0.5;
   return staff.dailyWage;
 }
 
+// Total wage including overtime pay
+function wageForDay(staff, attRecord) {
+  if (!attRecord) return 0;
+  const base = baseWageForDay(staff, attRecord);
+  const ot = Number(attRecord.otPay) || 0;
+  return base + ot;
+}
+
 function getWagesInPeriod(state, fromDate, toDate) {
   let total = 0;
-  const breakdown = state.staff.map(s => ({ ...s, days: 0, halfDays: 0, absent: 0, payable: 0 }));
+  const breakdown = state.staff.map(s => ({ ...s, days: 0, halfDays: 0, absent: 0, otPay: 0, otHours: 0, payable: 0 }));
   const from = new Date(fromDate), to = new Date(toDate);
   for (const s of state.staff) {
-    let sum = 0; let days=0, halfDays=0, absent=0;
+    let sum = 0; let days=0, halfDays=0, absent=0, otPay=0, otHours=0;
     for (let d = new Date(from); d <= to; d.setDate(d.getDate()+1)) {
       const key = s.id + "_" + ymd(d);
       const a = state.attendance[key];
       if (!a) continue;
       const w = wageForDay(s, a);
       sum += w;
+      otPay += Number(a.otPay) || 0;
+      otHours += Number(a.otHours) || 0;
       if (a.status === "full") days++;
       else if (a.status === "half") halfDays++;
       else if (a.status === "absent") absent++;
     }
     total += sum;
     const idx = breakdown.findIndex(b => b.id === s.id);
-    breakdown[idx] = { ...breakdown[idx], days, halfDays, absent, payable: sum };
+    breakdown[idx] = { ...breakdown[idx], days, halfDays, absent, otPay, otHours, payable: sum };
   }
   return { total, breakdown };
 }
@@ -769,6 +780,6 @@ function hasDateConflict(state, roomId, checkIn, checkOut, excludeId = null) {
 Object.assign(window, {
   StoreContext, StoreProvider, useStore,
   ymd, today, addDays, fmtDate, fmtBaht, diffDays,
-  wageForDay, getWagesInPeriod, getRevenueInPeriod, getExpensesInPeriod,
+  wageForDay, baseWageForDay, getWagesInPeriod, getRevenueInPeriod, getExpensesInPeriod,
   hasDateConflict, getStaffBalance,
 });

@@ -176,6 +176,12 @@ const TRANSLATIONS = {
   s_period:    { th: "ช่วงเวลา", en: "Period" },
   s_total_hours: { th: "ชั่วโมงรวม", en: "Total hours" },
   s_today:     { th: "วันนี้", en: "Today" },
+  s_ot:        { th: "ค่าล่วงเวลา (OT)", en: "Overtime (OT)" },
+  s_ot_short:  { th: "OT", en: "OT" },
+  s_ot_hours:  { th: "ชั่วโมง OT", en: "OT hours" },
+  s_ot_pay:    { th: "ค่า OT (บาท)", en: "OT pay (THB)" },
+  s_ot_hint:   { th: "เช่น อยู่ต่อกะดึก / ทำงานล่วงเวลา", en: "e.g. covered night shift / worked overtime" },
+  s_ot_total:  { th: "OT รวม", en: "Total OT" },
 
   // Finance
   f_revenue:   { th: "รายรับ", en: "Revenue" },
