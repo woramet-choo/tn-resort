@@ -55,11 +55,9 @@ async function getHotelState() {
 }
 
 async function setHotelState(state) {
-  await db.collection('hotels').doc(HOTEL_ID).set({
-    ...state,
-    lastUpdated: new Date().toISOString(),
-    version: 1
-  });
+  // Strip out any metadata fields before saving to avoid sync loops
+  const { _lastUpdated, _version, ...cleanState } = state;
+  await db.collection('hotels').doc(HOTEL_ID).set(cleanState);
 }
 
 async function subscribeToHotelState(callback) {

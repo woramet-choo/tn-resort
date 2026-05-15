@@ -318,30 +318,41 @@ function StoreProvider({ children }) {
   });
   const [toasts, setToasts] = React.useState([]);
   const unsubscribeRef = React.useRef(null);
+  const skipNextWriteRef = React.useRef(false);   // true when state was just updated from remote
+  const writeTimerRef = React.useRef(null);
+  const initialLoadDoneRef = React.useRef(false);
 
   // Load from Firestore and subscribe to real-time updates
   React.useEffect(() => {
-    if (!window.subscribeToState) return;
+    if (!window.subscribeToState) {
+      initialLoadDoneRef.current = true;
+      return;
+    }
 
     // Load initial state from Firestore
     (async () => {
       try {
         const savedState = await window.getState();
         if (savedState && savedState.rooms && savedState.stays) {
+          skipNextWriteRef.current = true;
           setState(migrateState(savedState));
         }
       } catch (e) {
         console.error('Failed to load from Firestore:', e);
+      } finally {
+        initialLoadDoneRef.current = true;
       }
     })();
 
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates (skip local writes)
     try {
       unsubscribeRef.current = window.subscribeToState((newState) => {
         if (newState && newState.rooms && newState.stays) {
           setState(prev => {
-            // Only update if remote data is newer/different
-            if (JSON.stringify(prev) !== JSON.stringify(newState)) {
+            const newJson = JSON.stringify(newState);
+            const prevJson = JSON.stringify(prev);
+            if (prevJson !== newJson) {
+              skipNextWriteRef.current = true;
               return migrateState(newState);
             }
             return prev;
@@ -354,17 +365,31 @@ function StoreProvider({ children }) {
 
     return () => {
       if (unsubscribeRef.current) unsubscribeRef.current();
+      if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
     };
   }, []);
 
-  // Sync local state to Firestore
+  // Sync local state to Firestore (debounced, skip if just updated from remote)
   React.useEffect(() => {
     try {
       localStorage.setItem("tn_state_v1", JSON.stringify(state));
     } catch (e) {}
 
+    // Skip if state was just updated from remote subscription
+    if (skipNextWriteRef.current) {
+      skipNextWriteRef.current = false;
+      return;
+    }
+
+    // Skip if initial load hasn't completed yet
+    if (!initialLoadDoneRef.current) return;
+
     if (window.setState && state.rooms && state.stays) {
-      window.setState(state).catch(e => console.error('Firebase sync error:', e));
+      // Debounce: wait 500ms before writing
+      if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
+      writeTimerRef.current = setTimeout(() => {
+        window.setState(state).catch(e => console.error('Firebase sync error:', e));
+      }, 500);
     }
   }, [state]);
 
