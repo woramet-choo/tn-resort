@@ -411,6 +411,49 @@ function StoreProvider({ children }) {
     toast("รีเซ็ตข้อมูลเรียบร้อย");
   }, [toast]);
 
+  // Export current state to JSON file
+  const exportData = React.useCallback(() => {
+    const filename = `tn-resort-backup-${today()}.json`;
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast("สำรองข้อมูลเรียบร้อย · " + filename);
+  }, [state, toast]);
+
+  // Import / restore state from a JSON backup file
+  const importData = React.useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const imported = JSON.parse(ev.target.result);
+          if (!imported.rooms || !imported.stays) {
+            alert("ไฟล์ไม่ถูกต้อง: ต้องมีข้อมูลห้องและการเข้าพัก");
+            return;
+          }
+          if (!confirm(`นำเข้าข้อมูลจากไฟล์:\n${file.name}\n\nข้อมูลปัจจุบันทั้งหมดจะถูกแทนที่ด้วยข้อมูลในไฟล์\nต้องการดำเนินการต่อไหม?`)) return;
+          setState(migrateState(imported));
+          toast("นำเข้าข้อมูลเรียบร้อย · " + file.name);
+        } catch (err) {
+          alert("ไม่สามารถอ่านไฟล์ได้: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [toast]);
+
   // Clear all operational data (keep rooms + staff structure)
   const clearAllData = React.useCallback(() => {
     if (!confirm("ล้างข้อมูลการเข้าพัก/แขก/รายจ่าย/ซ่อมแซมทั้งหมด?\n(ห้องและพนักงานจะคงไว้)\n\nไม่สามารถกู้คืนได้")) return;
@@ -611,7 +654,7 @@ function StoreProvider({ children }) {
   }), [update]);
 
   return (
-    <StoreContext.Provider value={{ state, actions, toast, toasts, resetData, clearAllData }}>
+    <StoreContext.Provider value={{ state, actions, toast, toasts, resetData, clearAllData, exportData, importData }}>
       {children}
     </StoreContext.Provider>
   );

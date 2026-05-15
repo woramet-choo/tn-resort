@@ -163,6 +163,7 @@ const TRANSLATIONS = {
   // Staff
   s_day:       { th: "กะกลางวัน", en: "Day shift" },
   s_night:     { th: "กะกลางคืน", en: "Night shift" },
+  s_parttime:  { th: "พาร์ทไทม์", en: "Part-time" },
   s_daily_wage:{ th: "ค่าจ้างรายวัน", en: "Daily wage" },
   s_attendance:{ th: "ลงเวลาเข้าออกงาน", en: "Time clock" },
   s_clock_in:  { th: "เข้างาน", en: "Clock in" },

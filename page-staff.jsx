@@ -24,7 +24,7 @@ function StaffPage({ role }) {
       <div className="section-head">
         <div>
           <h2>{t("nav_staff")}</h2>
-          <div className="sub">{state.staff.length} {lang==="th"?"คน":"people"} · {lang==="th"?"กะกลางวัน":"Day"} {state.staff.filter(s => s.shift==="day").length} · {lang==="th"?"กะกลางคืน":"Night"} {state.staff.filter(s => s.shift==="night").length}</div>
+          <div className="sub">{state.staff.length} {lang==="th"?"คน":"people"} · {lang==="th"?"กะกลางวัน":"Day"} {state.staff.filter(s => s.shift==="day").length} · {lang==="th"?"กะกลางคืน":"Night"} {state.staff.filter(s => s.shift==="night").length} · {lang==="th"?"พาร์ทไทม์":"Part-time"} {state.staff.filter(s => s.shift==="parttime").length}</div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
           <Icon name="plus" size={14} /> {lang==="th"?"เพิ่มพนักงาน":"Add staff"}
@@ -110,7 +110,7 @@ function StaffPage({ role }) {
                 <tr key={s.id}>
                   <td>
                     <div className="row" style={{ gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 999, background: s.shift === "night" ? "#2d3447" : "var(--brand-soft)", color: s.shift === "night" ? "white" : "var(--brand-dark)", display: "grid", placeItems: "center", fontWeight: 600, fontSize: 13 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 999, background: s.shift === "night" ? "#2d3447" : s.shift === "parttime" ? "#f5ede0" : "var(--brand-soft)", color: s.shift === "night" ? "white" : s.shift === "parttime" ? "var(--accent)" : "var(--brand-dark)", display: "grid", placeItems: "center", fontWeight: 600, fontSize: 13 }}>
                         {s.name.charAt(0)}
                       </div>
                       <div>
@@ -121,7 +121,7 @@ function StaffPage({ role }) {
                   </td>
                   <td>
                     <span className="chip">
-                      <Icon name={s.shift === "day" ? "sun" : "moon"} size={11} />
+                      <Icon name={s.shift === "day" ? "sun" : s.shift === "night" ? "moon" : "user"} size={11} />
                       {t("s_" + s.shift)}
                     </span>
                   </td>
@@ -622,6 +622,7 @@ function EditStaffModal({ staff, onClose }) {
           <select className="select" value={form.shift} onChange={e => setForm({...form, shift: e.target.value})}>
             <option value="day">{t("s_day")}</option>
             <option value="night">{t("s_night")}</option>
+            <option value="parttime">{t("s_parttime")}</option>
           </select>
         </div>
         <div className="field">
@@ -663,6 +664,7 @@ function AddStaffModal({ open, onClose, onAdd }) {
           <select className="select" value={form.shift} onChange={e => setForm({...form, shift: e.target.value})}>
             <option value="day">{t("s_day")}</option>
             <option value="night">{t("s_night")}</option>
+            <option value="parttime">{t("s_parttime")}</option>
           </select>
         </div>
         <div className="field">

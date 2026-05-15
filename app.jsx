@@ -253,6 +253,8 @@ function Sidebar({ active, onNav, role, onLogout, open, onClose }) {
               {t("role_" + role)}
             </div>
           </div>
+          {role === "manager" ? <ExportDataButton /> : null}
+          {role === "manager" ? <ImportDataButton /> : null}
           {role === "manager" ? <ClearDataButton /> : null}
           <button className="sidebar-link" style={{ padding: "7px 10px", marginTop: 4 }} onClick={onLogout}>
             <span className="icon"><Icon name="logout" size={15} /></span>
@@ -262,6 +264,40 @@ function Sidebar({ active, onNav, role, onLogout, open, onClose }) {
       </aside>
     </>);
 
+}
+
+// Export data button — downloads backup JSON
+function ExportDataButton() {
+  const { lang } = useI18n();
+  const { exportData } = useStore();
+  return (
+    <button
+      className="sidebar-link"
+      style={{ padding: "7px 10px", marginTop: 4 }}
+      onClick={exportData}
+      title={lang === "th" ? "ส่งออกข้อมูลทั้งหมดเป็นไฟล์ JSON" : "Export all data as JSON backup"}
+    >
+      <span className="icon"><Icon name="download" size={15} /></span>
+      <span>{lang === "th" ? "สำรองข้อมูล" : "Backup"}</span>
+    </button>
+  );
+}
+
+// Import data button — restores from backup JSON
+function ImportDataButton() {
+  const { lang } = useI18n();
+  const { importData } = useStore();
+  return (
+    <button
+      className="sidebar-link"
+      style={{ padding: "7px 10px", marginTop: 4, color: "#ffe0a0", opacity: .9 }}
+      onClick={importData}
+      title={lang === "th" ? "นำเข้าข้อมูลจากไฟล์สำรอง (แทนที่ข้อมูลปัจจุบัน)" : "Import / restore data from backup file"}
+    >
+      <span className="icon"><Icon name="upload" size={15} /></span>
+      <span>{lang === "th" ? "นำเข้าข้อมูล" : "Restore"}</span>
+    </button>
+  );
 }
 
 // Clear data button — manager only, with double confirmation
