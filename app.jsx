@@ -253,6 +253,7 @@ function Sidebar({ active, onNav, role, onLogout, open, onClose }) {
               {t("role_" + role)}
             </div>
           </div>
+          {role === "manager" ? <ClearDataButton /> : null}
           <button className="sidebar-link" style={{ padding: "7px 10px", marginTop: 4 }} onClick={onLogout}>
             <span className="icon"><Icon name="logout" size={15} /></span>
             <span>{t("logout")}</span>
@@ -261,6 +262,28 @@ function Sidebar({ active, onNav, role, onLogout, open, onClose }) {
       </aside>
     </>);
 
+}
+
+// Clear data button — manager only, with double confirmation
+function ClearDataButton() {
+  const { lang } = useI18n();
+  const { clearAllData } = useStore();
+  return (
+    <button
+      className="sidebar-link"
+      style={{
+        padding: "7px 10px",
+        marginTop: 4,
+        color: "#ffcfc0",
+        opacity: .85
+      }}
+      onClick={clearAllData}
+      title={lang === "th" ? "ล้างข้อมูลทั้งหมด (เก็บห้อง+พนักงาน)" : "Clear all data (keep rooms + staff)"}
+    >
+      <span className="icon"><Icon name="trash" size={15} /></span>
+      <span>{lang === "th" ? "ล้างข้อมูล" : "Clear data"}</span>
+    </button>
+  );
 }
 
 function Topbar({ pageId, onMenuClick }) {

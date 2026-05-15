@@ -411,6 +411,24 @@ function StoreProvider({ children }) {
     toast("รีเซ็ตข้อมูลเรียบร้อย");
   }, [toast]);
 
+  // Clear all operational data (keep rooms + staff structure)
+  const clearAllData = React.useCallback(() => {
+    if (!confirm("ล้างข้อมูลการเข้าพัก/แขก/รายจ่าย/ซ่อมแซมทั้งหมด?\n(ห้องและพนักงานจะคงไว้)\n\nไม่สามารถกู้คืนได้")) return;
+    setState(prev => ({
+      ...prev,
+      stays: [],
+      guests: [],
+      bookings: [],
+      expenses: [],
+      maintenance: [],
+      advances: [],
+      attendance: {},
+      // Reset all rooms to available (clear status)
+      rooms: prev.rooms.map(r => ({ ...r, status: "available", note: "" })),
+    }));
+    toast("ล้างข้อมูลเรียบร้อย");
+  }, [toast]);
+
   // ===== Actions =====
   const actions = React.useMemo(() => ({
     setRoomStatus: (roomId, status) => update(s => ({
@@ -593,7 +611,7 @@ function StoreProvider({ children }) {
   }), [update]);
 
   return (
-    <StoreContext.Provider value={{ state, actions, toast, toasts, resetData }}>
+    <StoreContext.Provider value={{ state, actions, toast, toasts, resetData, clearAllData }}>
       {children}
     </StoreContext.Provider>
   );
